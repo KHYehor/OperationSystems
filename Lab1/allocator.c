@@ -11,10 +11,10 @@ static Memory_Pool *mpool = &pool;
 bool mem_alloc_init(size_t size)
 {
     // Если аллокатор уже сделан, то второй раз делать его не будем
-    if (mpool->start != NULL) return false;
+    if (mpool->size != 0) return false;
     // Создаем начальный хедер
-    Header header = { 0, false, true };
-    Header *first_header = (Header *)((void *)mpool + sizeof(Memory_Pool));
+    Header header = { size - sizeof(Header), false, true };
+    Header *first_header = (Header *)(malloc(size));
     *first_header = header;
     // Указываем в аллокаторе его первый хедер, размер и конечную границу памяти
     mpool->start = (void *)first_header;
@@ -37,7 +37,6 @@ static void mem_dump_helper(void *current, int number)
     printf("Free: %d\n", header->free);
     if (header->next_exists) return mem_dump_helper(current + sizeof(Header) + header->curr_size, ++number);
     printf("========================================\n");
-    printf("Memory left: %ld \n", mpool->end - (current + sizeof(Header) + header->curr_size));
     return;
 };
 
@@ -54,18 +53,16 @@ static void *mem_alloc_helper(void *current, void *end, size_t size, void *best_
 {
     Header *address = (Header *)current;
     // Если находим такой блок памяти, с ровно нужной нам областью памяти, то пишем в него
-    if (address->free && (address->curr_size == size || address->curr_size == 0))
+    if (address->free && address->curr_size == size)
     {
-        address->curr_size = size;
-        address->free = false;
+        address->curr_size = size; address->free = false;
         return (void *)address + sizeof(Header);
     }
     // Если находим свободный блок, с более чем нужной нам памятью и эта память
     // еще меньше чем та, которую мы нашли ранее то запоминаем ее
     else if (address->free && size < address->curr_size && (address->curr_size < best_size))
     {
-        best_address = current;
-        best_size = ((Header *)current)->curr_size;
+        best_address = current; best_size = ((Header *)current)->curr_size;
     }
     // Смотрим можем ли мы идти дальше
     if (address->next_exists) return mem_alloc_helper((current + sizeof(Header) + address->curr_size), end, size, best_address, best_size);
@@ -77,10 +74,12 @@ static void *mem_alloc_helper(void *current, void *end, size_t size, void *best_
         if (best_header->curr_size - size - sizeof(Header) > 8)
         {
             // Создаем новый хедр
-            Header new_header = { (best_header->curr_size - size - sizeof(Header)), best_header->next_exists, false };
+            Header new_header = { best_header->curr_size - size - sizeof(Header), best_header->next_exists, true };
             Header *next_header = (Header *)(best_address + sizeof(Header) + size);
             *next_header = new_header;
-            best_header->curr_size = size; best_header->next_exists = true; best_header->free = false;
+            best_header->curr_size = size;
+            best_header->next_exists = true;
+            best_header->free = false;
             return (best_address + sizeof(Header));
         }
         // Пилить в пыль нет смысла, поэтому возвращаем то, что есть
@@ -109,10 +108,10 @@ void *mem_alloc(size_t size)
 
 void *mem_realloc(void *addr, size_t size)
 {
+    mem_free(addr);
     void *new_addr = mem_alloc(size);
     if (new_addr == NULL) return NULL;
     memcpy(new_addr, addr, ((Header *)(addr - sizeof(Header)))->curr_size);
-    ((Header *)(addr - sizeof(Header)))->free = true;
     return new_addr;
 };
 
@@ -128,8 +127,14 @@ bool mem_free(void *addr)
 {
     Header *address = (Header *)(addr - sizeof(Header));
     Header *next_adress = (Header *)(addr + address->curr_size);
-    
     if (address->next_exists && next_adress->free) address->curr_size = mem_free_helper(addr - sizeof(Header)) - addr;
     address->free = true;
+    return true;
+};
+
+bool mem_alloc_free()
+{
+    if (mpool->size == 0) return false;
+    mpool->size = 0; mpool->end = mpool->start;
     return true;
 };

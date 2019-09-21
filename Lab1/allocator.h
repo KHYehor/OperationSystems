@@ -28,4 +28,6 @@ void *mem_realloc(void *addr, size_t size);
 
 bool mem_free(void *addr);
 
+bool mem_alloc_free(void);
+
 #endif
