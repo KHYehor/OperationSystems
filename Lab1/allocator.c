@@ -85,17 +85,6 @@ static void *mem_alloc_helper(void *current, void *end, size_t size, void *best_
         // Пилить в пыль нет смысла, поэтому возвращаем то, что есть
         return NULL;
     }
-    // Смотрим, можем ли мы создать новый блок с необходимым размером дальше
-    else if ((current + (2 * sizeof(Header)) + address->curr_size + size) < end)
-    {
-        // Говорим текущему хедеру, что дальше будет хедер
-        address->next_exists = true;
-        Header new_header = { size, false, false };
-        Header *next_header = (Header *)(current + sizeof(Header) + address->curr_size);
-        *next_header = new_header;
-        // Возвращаем указатель на выделенную область памяти
-        return ((void *)next_header + sizeof(Header));
-    }
     // Если у нас нет лучшего адреса, и мы не можем выделить место под новый блок, тогда места нет вообще
     else return NULL;
 };
