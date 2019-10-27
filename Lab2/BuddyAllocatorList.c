@@ -152,8 +152,7 @@ void* mem_alloc(size_t size)
     // Определяем необходимую степень
     size_t find_power = log(size / Blist->MIN_SIZE) / log(2);
     // Ищем подходящий узел
-    Node *fn = (Node *)(Blist->first_node);
-    Node* found_node = list_find_space_helper(fn, find_power);
+    Node* found_node = list_find_space_helper((Node *)(Blist->first_node), find_power);
     if (!found_node) return NULL;
     // Если размеры узлов совпадают, то отдаем его
     if (found_node->power == find_power)
